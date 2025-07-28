@@ -30,5 +30,6 @@ A fun and friendly chatbot built with Chainlit, Gemini API, and UltraMSG that ac
 ---
 
 ## 👨‍💻 Author
-Made with ❤️ by Muhammad Awais
-For collabs: muhammadawaid0306@gmail.com
+
+- Made with ❤️ by Muhammad Awais
+- For collabs: muhammadawaid0306@gmail.com
