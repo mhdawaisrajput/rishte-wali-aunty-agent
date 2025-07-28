@@ -1,10 +1,10 @@
-import os
 from dotenv import load_dotenv
 load_dotenv()
-from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, RunConfig, function_tool
+import os
+from agents import AsyncOpenAI, OpenAIChatCompletionsModel, Agent, Runner, RunConfig, function_tool 
 import asyncio
-from openai.types.responses import ResponseTextDeltaEvent
 import requests
+import chainlit as cl
 
 # Recommended: Load from .env
 INSTANCE_ID = os.getenv("ULTRAMSG_INSTANCE_ID")
@@ -24,7 +24,6 @@ def send_whatsapp_message(phone: str, message: str) -> dict:
     }
     response = requests.post(url, data=payload)
     return response.json()
-
 
 @function_tool()
 def get_user_data(min_age: int) -> dict:
@@ -162,41 +161,120 @@ def get_user_data(min_age: int) -> dict:
         "profession": "AI Engineer",
         "marital_status": "Single",
         "religion": "Islam"
+    },
+    
+
+    # Female entries
+    {
+        "name": "Ayesha Siddiqui",
+        "age": 21,
+        "gender": "Female",
+        "city": "Karachi",
+        "education": "BS Psychology",
+        "phone": "0310-7654321",
+        "hobbies": ["Painting", "Reading"],
+        "marital_status": "Single",
+        "religion": "Islam"
+    },
+    {
+        "name": "Hira Imran",
+        "age": 22,
+        "gender": "Female",
+        "city": "Lahore",
+        "education": "BS Computer Science",
+        "phone": "0322-1122334",
+        "hobbies": ["Coding", "Cooking"],
+        "marital_status": "Unmarried",
+        "religion": "Islam"
+    },
+    {
+        "name": "Fatima Noor",
+        "age": 23,
+        "gender": "Female",
+        "city": "Islamabad",
+        "education": "MBBS",
+        "phone": "0308-3344556",
+        "profession": "Doctor",
+        "marital_status": "Single",
+        "religion": "Islam"
+    },
+    {
+        "name": "Sana Javed",
+        "age": 24,
+        "gender": "Female",
+        "city": "Multan",
+        "education": "BBA",
+        "phone": "0346-9988776",
+        "profession": "HR Manager",
+        "marital_status": "Single",
+        "religion": "Islam"
+    },
+    {
+        "name": "Mehwish Ali",
+        "age": 25,
+        "gender": "Female",
+        "city": "Faisalabad",
+        "education": "BS Software Engineering",
+        "phone": "0356-6677889",
+        "hobbies": ["Gaming", "Photography"],
+        "marital_status": "Unmarried",
+        "religion": "Islam"
+    },
+    {
+        "name": "Iqra Khan",
+        "age": 26,
+        "gender": "Female",
+        "city": "Quetta",
+        "education": "BS English Literature",
+        "phone": "0331-5544332",
+        "hobbies": ["Writing", "Traveling"],
+        "marital_status": "Single",
+        "religion": "Islam"
     }
     ]
+
     return [user for user in users if user["age"] >= min_age]
 
-async def main():
+#Step 01:
+@cl.on_chat_start
+async def start():
     MODEL_NAME = "gemini-2.0-flash"
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     external_client = AsyncOpenAI(
         api_key = GEMINI_API_KEY,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/", 
+        base_url = "https://generativelanguage.googleapis.com/v1beta/openai/",
     )
     model = OpenAIChatCompletionsModel(
-        model = "gemini-2.0-flash",
+        model = MODEL_NAME,
         openai_client = external_client,
     )
-    config = RunConfig(
-        model=model,
-        model_provider=external_client,
-        tracing_disabled=True
-    )
+    cl.user_session.set("chat_history", [])
     rishte_wali_aunty = Agent(
         name = "rishte_wali_aunty",
         instructions = """
-        You are a warm and wise 'Rishtey wali Aunty' who helps people find rishtas. Your language based on user input language. Only give rishta details if the user is 19 or older — if the age is below 19, politely tell them: "Meherbani karke kam az kam 19 saal ki umar darj karein!"
+        You are a warm and wise Rishtey wali Aunty who helps people find suitable matches. When a user requests help in finding a match, first ask for only their name and the gender they are looking for in a rishta. If the user's age is below 19, politely respond with: "Meherbani karke kam az kam 19 saal ki umar darj karein!" Only provide rishta details if the user is 19 years old or above."
         """,
         model = model,
         tools=[get_user_data, send_whatsapp_message],
     )
-    result = Runner.run_streamed(
+    cl.user_session.set("agent", rishte_wali_aunty)    
+    await cl.Message(content = "Hello, I am your Rishte wali aunty. How can I assist you?").send()
+
+# Step 02:
+@cl.on_message
+async def main(message: cl.Message):
+    msg = await cl.Message(content = "Thinking... 🤔💭").send()
+    rishte_wali_aunty = cl.user_session.get("agent")
+    history = cl.user_session.get("chat_history")
+    history.append({"role": "user", "content": message.content})
+    result = await Runner.run(
         starting_agent = rishte_wali_aunty,
-        input = "Mujhe rishta dhoond kar WhatsApp pe bhejo. Meri age 19 hai, aur mera number 923395831804 hai.",
-        run_config = config
+        input = history
     )
-    async for event in result.stream_events():
-        if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
-            print(event.data.delta, end="", flush=True)
+    msg.content = result.final_output
+    await msg.update()
+    cl.user_session.set("chat_history", result.to_input_list())
+    print(result.final_output)  
+
 if __name__ == "__main__":
-    asyncio.run(main())
+   asyncio.run(main())
