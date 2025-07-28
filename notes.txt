@@ -1,0 +1,65 @@
+
+
+✅ Step 1: Create an UltraMSG Account & Set Up Instance
+1.  Go to https://ultramsg.com
+2.  Sign up for an account.
+3.  After login, create a new Instance.
+4.  You'll receive: instance_id and token.
+5.  Scan the WhatsApp QR code using the mobile you want to send messages from (just like WhatsApp Web).
+6.  Now your phone is connected.
+
+
+✅ Step 2: Add UltraMSG Sending Function to Your Code
+1.  You will now write a @function_tool to send messages via the UltraMSG API.
+2.  Code Below:
+
+"""
+from agents import function_tool
+import requests
+import os
+
+# Recommended: Load from .env
+INSTANCE_ID = os.getenv("ULTRAMSG_INSTANCE_ID")
+ULTRAMSG_TOKEN = os.getenv("ULTRAMSG_TOKEN")
+
+@function_tool()
+def send_whatsapp_message(phone: str, message: str) -> dict:
+    """
+    Send a WhatsApp message using UltraMSG API.
+    Example phone: '923001234567'
+    """
+    url = f"https://api.ultramsg.com/{INSTANCE_ID}/messages/chat"
+    payload = {
+        "token": ULTRAMSG_TOKEN,
+        "to": phone,
+        "body": message,
+    }
+
+    response = requests.post(url, data=payload)
+    return response.json()
+"""
+
+
+✅ Step 3: Add This Tool to Your Agent
+1.  Update your agent config Like Below Code:
+
+"""
+rishte_wali_aunty = Agent(
+    name="rishte_wali_aunty",
+    instructions="""
+    You are a warm and wise 'Rishtey wali Aunty' who helps people find rishtas.
+    Use Roman Urdu only. If age is under 19, reply: 'Meherbani karke kam az kam 19 saal ki umar darj karein!'
+    You can send rishta suggestions directly to the user's WhatsApp number using the tool provided.
+    """,
+    model=model,
+    tools=[get_user_data, send_whatsapp_message],
+)
+"""
+
+
+✅ Step 4: Example Prompt to Trigger WhatsApp Message
+1.  You can write a prompt like this:
+
+"""
+input = "Mujhe rishta dhoond kar WhatsApp pe bhejo. Meri age 19 hai, aur mera number 923395831804 hai.",
+"""
